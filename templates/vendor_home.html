@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vendor Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/vendor_dashboard.css') }}">
+    <script>
+        // Function to handle delete customer form submission
+        function handleDeleteCustomer(event, customerName, customerId) {
+            event.preventDefault();
+            
+            if (confirm('Are you sure you want to delete ' + customerName + ' (' + customerId + ')?')) {
+                const form = event.target;
+                
+                // Submit the form using fetch API
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams(new FormData(form))
+                })
+                .then(response => {
+                    if (response.status === 204) {
+                        // Success - redirect back to the vendor home page
+                        // Extract vendor_id from the current URL
+                        const urlParts = window.location.pathname.split('/');
+                        const vendorId = urlParts[urlParts.length - 1];
+                        
+                        // Redirect to the vendor home page with the correct vendor_id
+                        window.location.href = "{{ url_for('vendor_home', vendor_id='') }}" + vendorId;
+                    } else {
+                        // Error handling
+                        alert('Error deleting customer. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting customer. Please try again.');
+                });
+            }
+        }
+    </script>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="{{ url_for('index') }}" class="nav-link">🏠 Home</a>
+            <a href="{{ url_for('vendor_dashboard') }}" class="nav-link">🔄 Refresh</a>
+            <a href="{{ url_for('logout') }}" class="nav-link">🚪 Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="login-box">
+            <div class="vendor-header">
+                <div class="vendor-info">
+                    <h2>Welcome, {{ vendor.name }}</h2>
+                    <div class="vendor-id">ID: {{ vendor.vendor_id }}</div>
+                    <div class="vendor-location">📍 {{ vendor.town }}, {{ vendor.city }}, {{ vendor.state }}</div>
+                </div>
+                <div class="vendor-actions">
+                    <a href="{{ url_for('add_customer', vendor_id=vendor.vendor_id) }}" class="add-customer-btn">➕ Add New Customer</a>
+                </div>
+            </div>
+
+            <div class="product-section">
+                <h3>📦 Products You Sell</h3>
+                <div class="product-grid">
+                    {% if products %}
+                        {% for p in products %}
+                            <div class="product-card">
+                                <div class="product-name">{{ p.name }}</div>
+                                <div class="product-price">₹{{ p.price }}</div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p>No products found.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="customer-list">
+                <h3>👥 Your Customers</h3>
+                {% if customers %}
+                    {% for c in customers %}
+                        <div class="customer-card">
+                            <div class="customer-details">
+                                <div class="customer-name">{{ c.Name }} <span class="customer-id">(ID: {{ c.Customer_id }})</span></div>
+                                <div class="customer-contact">📍 {{ c.City }}, {{ c.State }}</div>
+                                
+                                {% if customer_products[c.Customer_id] %}
+                                    <div class="customer-purchases">
+                                        <strong>Purchased Products:</strong>
+                                        <ul>
+                                            {% for item in customer_products[c.Customer_id] %}
+                                                <li>{{ item.name }} - ₹{{ item.price }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                        
+                                        {% if payment_dates[c.Customer_id] %}
+                                            <p><strong>Date of Purchase:</strong> {{ payment_dates[c.Customer_id].strftime('%Y-%m-%d') }}</p>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+
+                                {% if due_amounts[c.Customer_id] > 0 %}
+                                    <div class="customer-due">
+                                        <strong>Due Payment:</strong> ₹{{ due_amounts[c.Customer_id] }}
+                                        {% if payment_dates[c.Customer_id] %}
+                                            <br><strong>Due Date:</strong> {{ payment_dates[c.Customer_id].strftime('%Y-%m-%d') }}
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <div class="customer-due">
+                                        <strong>Payment Status:</strong> <span style="color: green;">✓ Fully Paid</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="customer-actions">
+                                <form action="{{ url_for('delete_customer', vendor_id=vendor.vendor_id, customer_id=c.Customer_id) }}" method="post" onsubmit="handleDeleteCustomer(event, '{{ c.Name }}', '{{ c.Customer_id }}'); return false;">
+                                    <button type="submit" class="delete-btn">🗑️ Delete Customer</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No customers linked to you yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

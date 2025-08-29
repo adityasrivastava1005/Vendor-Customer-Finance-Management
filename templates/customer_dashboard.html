@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Customer Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/customer_dashboard.css') }}">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="{{ url_for('index') }}" class="nav-link">🏠 Home</a>
+            <a href="{{ url_for('customer_dashboard') }}" class="nav-link">🔄 Refresh</a>
+            <a href="{{ url_for('logout') }}" class="nav-link">🚪 Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="login-box">
+            <h2>Welcome, {{ customer.Name }}</h2>
+            <div class="customer-info">
+                <div class="customer-id-badge">ID: {{ customer.Customer_id }}</div>
+                <div class="customer-location">📍 {{ customer.City }}, {{ customer.State }}</div>
+            </div>
+
+            <h3>🛍️ Your Purchases</h3>
+            {% if purchases %}
+                <ul>
+                    {% for item in purchases %}
+                        <li>{{ item.name }} - ₹{{ item.price }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No purchases found.</p>
+            {% endif %}
+
+            <h3>💰 Payment Information</h3>
+            <div class="payment-info">
+                {% if purchase_date %}
+                <p><strong>Date of Purchase:</strong> {{ purchase_date.strftime('%Y-%m-%d') }}</p>
+                {% endif %}
+                
+                {% if due_amount > 0 %}
+                    <p><strong>Due Amount:</strong> ₹{{ due_amount }}</p>
+                    {% if due_date %}
+                    <p><strong>Due Date:</strong> {{ due_date.strftime('%Y-%m-%d') }}</p>
+                    {% endif %}
+                {% else %}
+                    <p><strong>Payment Status:</strong> <span style="color: green;">✓ Fully Paid</span></p>
+                {% endif %}
+            </div>
+
+            <div class="notifications">
+                <h3>Notifications</h3>
+                {% if notifications %}
+                    {% for notification in notifications %}
+                        <div class="notification {% if not notification.is_read %}unread{% endif %} {% if '⚠️' in notification.message %}overdue{% endif %}">
+                            <p>{{ notification.message }}</p>
+                            <small>Due Date: {{ notification.due_date.strftime('%Y-%m-%d') }}</small>
+                            {% if not notification.is_read %}
+                                <form action="{{ url_for('mark_notification_read', notification_id=notification.notification_id) }}" method="POST" style="display: inline;">
+                                    <button type="submit" class="mark-read-btn">Mark as Read</button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No notifications</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

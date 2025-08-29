@@ -1,0 +1,28 @@
+<!-- templates/login.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
+    <div class="login-box">
+        <h2>Welcome to Local Vendor System</h2>
+        
+        <div class="login-options">
+            <h3>Choose Login Type</h3>
+            <div class="login-buttons">
+                <a href="{{ url_for('customer_login') }}" class="login-btn customer-btn">
+                    <span class="icon">👤</span>
+                    Customer Login
+                </a>
+                <a href="{{ url_for('vendor_login') }}" class="login-btn vendor-btn">
+                    <span class="icon">🏪</span>
+                    Vendor Login
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

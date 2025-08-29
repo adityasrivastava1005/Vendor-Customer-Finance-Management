@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Customer Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="login-box">
+        <h2>Welcome, {{ customer.Name }}</h2>
+        <p><strong>Customer ID:</strong> {{ customer.Customer_id }}</p>
+        <p><strong>Location:</strong> {{ customer.Town }}, {{ customer.City }}, {{ customer.State }}</p>
+
+        <h3>🛒 Purchased Items</h3>
+        {% if purchases %}
+            <ul>
+                {% for item in purchases %}
+                    <li>{{ item.name }} – ₹{{ item.price }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No purchases found.</p>
+        {% endif %}
+
+        <h3>💸 Invoice</h3>
+        <p><strong>Due Amount:</strong> ₹{{ due_amount }}</p>
+        <p><strong>Due Date:</strong> {{ due_date if due_date else 'Not Available' }}</p>
+    </div>
+</body>
+</html>

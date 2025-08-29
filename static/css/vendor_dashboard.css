@@ -1,0 +1,162 @@
+/* Vendor Dashboard Specific Styles */
+.vendor-header {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.vendor-info {
+    flex: 1;
+}
+
+.vendor-id {
+    display: inline-block;
+    background-color: #e3f2fd;
+    color: #1976d2;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.vendor-location {
+    color: #666;
+    margin-top: 5px;
+}
+
+.vendor-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.add-customer-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: background-color 0.3s;
+}
+
+.add-customer-btn:hover {
+    background-color: #388E3C;
+}
+
+/* Customer List */
+.customer-list {
+    margin-top: 30px;
+}
+
+.customer-card {
+    background-color: #fff;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.customer-details {
+    flex: 1;
+}
+
+.customer-name {
+    font-weight: bold;
+    color: #333;
+}
+
+.customer-contact {
+    color: #666;
+    font-size: 0.9em;
+    margin-top: 5px;
+}
+
+.customer-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.view-btn {
+    background-color: #2196F3;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: background-color 0.3s;
+}
+
+.view-btn:hover {
+    background-color: #1976D2;
+}
+
+/* Product Management */
+.product-section {
+    margin-top: 30px;
+}
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.product-card {
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.product-name {
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.product-price {
+    color: #4CAF50;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.product-stock {
+    color: #666;
+    font-size: 0.9em;
+    margin-top: 5px;
+}
+
+/* Statistics */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+}
+
+.stat-card {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 2em;
+    font-weight: bold;
+    color: #1976D2;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    color: #666;
+    font-size: 0.9em;
+} 

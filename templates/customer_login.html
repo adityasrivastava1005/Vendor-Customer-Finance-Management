@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Customer Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
+    <div class="login-box">
+        <h2>Customer Login</h2>
+        <form method="POST" action="{{ url_for('customer_login') }}" class="login-form">
+            <div class="form-group">
+                <label for="customer_id">Customer ID:</label>
+                <input type="text" name="customer_id" placeholder="e.g., C001, C002, C003" required>
+                <small class="form-text">Example IDs: C001 (John Doe), C002 (Jane Smith), C003 (Ali Khan)</small>
+            </div>
+
+            <button type="submit">Login</button>
+        </form>
+
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+
+        <div class="back-link">
+            <a href="{{ url_for('index') }}">← Back to Home</a>
+        </div>
+    </div>
+</body>
+</html> 

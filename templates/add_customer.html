@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Customer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        function calculateAge() {
+            const dob = document.getElementById('dob').value;
+            if (dob) {
+                const birthDate = new Date(dob);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const m = today.getMonth() - birthDate.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                document.getElementById('age').value = age;
+            }
+        }
+        
+        function toggleDueDate() {
+            const dueAmount = document.getElementById('AmountDue').value;
+            const dueDateField = document.getElementById('DueDate');
+            
+            if (dueAmount === '0' || dueAmount === '') {
+                dueDateField.removeAttribute('required');
+                dueDateField.disabled = true;
+                document.getElementById('dueDateLabel').style.color = '#999';
+            } else {
+                dueDateField.setAttribute('required', 'required');
+                dueDateField.disabled = false;
+                document.getElementById('dueDateLabel').style.color = '';
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="login-box">
+        <h2>Add New Customer</h2>
+        <form method="POST">
+            <!-- Basic Customer Info -->
+            <input type="text" name="Customer_id" placeholder="Customer ID (e.g., C011)" required>
+            <input type="text" name="Name" placeholder="Full Name" required>
+            <input type="date" name="DOB" id="dob" onchange="calculateAge()" required>
+            <input type="number" name="Age" id="age" placeholder="Age" readonly required>
+            <input type="text" name="City" placeholder="City" required>
+            <input type="text" name="Town" placeholder="Town" required>
+            <input type="text" name="State" placeholder="State" required>
+
+            <!-- Product Selection -->
+            <h3>Select Products</h3>
+            <div class="product-selection">
+                {% for product in products %}
+                <div class="product-item">
+                    <input type="checkbox" name="products" value="{{ product.product_id }}" id="product_{{ product.product_id }}">
+                    <label for="product_{{ product.product_id }}">{{ product.name }} - ₹{{ product.price }}</label>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Payment Info -->
+            <h3>Payment Information</h3>
+            <input type="number" name="AmountPaid" placeholder="Amount Paid (₹)" required>
+            <input type="number" name="AmountDue" id="AmountDue" placeholder="Amount Due (₹)" required onchange="toggleDueDate()">
+            
+            <!-- Dates -->
+            <h3>Important Dates</h3>
+            <h4>Date of Purchase</h4>
+            <input type="date" name="PurchaseDate" placeholder="Date of Purchase" required>
+            <h4 id="dueDateLabel">Due Date</h4>
+            <input type="date" name="DueDate" id="DueDate" placeholder="Due Date">
+
+            <button type="submit">✅ Add Customer</button>
+        </form>
+
+        <div style="margin-top: 20px; text-align: center;">
+            <a href="{{ url_for('vendor_home', vendor_id=vendor_id) }}" class="back-link">
+                <button type="button" style="width: auto; padding: 10px 20px;">⬅ Back to Dashboard</button>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
