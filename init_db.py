@@ -14,7 +14,7 @@ def init_database():
         conn = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="MANABsingh@29"
+            password="Aditya@100105"
         )
         cursor = conn.cursor()
         
@@ -47,7 +47,7 @@ def init_database():
         print("Database initialized successfully")
         
         # Test connection to the database
-        cursor.execute("USE project1")
+        cursor.execute("USE mydb")
         cursor.execute("SELECT COUNT(*) FROM customer")
         count = cursor.fetchone()[0]
         print(f"Found {count} customers in the database")

@@ -1,7 +1,7 @@
 -- Create Database
-DROP DATABASE IF EXISTS project1;
-CREATE DATABASE project1;
-USE project1;
+DROP DATABASE IF EXISTS mydb;
+CREATE DATABASE mydb;
+USE mydb;
 
 -- CUSTOMER Table
 CREATE TABLE customer (

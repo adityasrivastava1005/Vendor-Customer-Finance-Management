@@ -2,17 +2,18 @@
     "sqltools.connections": [
         {
             "mysqlOptions": {
-                "authProtocol": "default",
+                "authProtocol": "xprotocol",
                 "enableSsl": "Disabled"
             },
+            "ssh": "Disabled",
             "previewLimit": 50,
             "server": "localhost",
-            "port": 3306,
+            "port": 33060,
             "driver": "MySQL",
             "name": "DBMSProject",
-            "database": "project1",
+            "database": "mydb",
             "username": "root",
-            "password": "MANABsingh@29",
+            "password": "Aditya@100105",
             "connectionTimeout": 30
         }
     ]

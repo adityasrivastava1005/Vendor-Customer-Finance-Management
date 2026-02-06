@@ -26,8 +26,8 @@ mail = Mail(app)
 db = mysql.connector.connect(
     host="localhost",
     user="root",
-    password="MANABsingh@29",
-    database="project1"
+    password="Aditya@100105",
+    database="mydb"
 )
 cursor = db.cursor(dictionary=True)
 
@@ -35,8 +35,8 @@ def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
         user="root",
-        password="MANABsingh@29",
-        database="project1"
+        password="Aditya@100105",
+        database="mydb"
     )
 
 def update_sql_file(operation, table_name, data):

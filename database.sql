@@ -1,7 +1,7 @@
 -- Create Database
-DROP DATABASE IF EXISTS project1;
-CREATE DATABASE project1;
-USE project1;
+DROP DATABASE IF EXISTS mydb;
+CREATE DATABASE mydb;
+USE mydb;
 
 -- LOCATION Table (Normalized from redundant location data)
 CREATE TABLE location (
@@ -103,7 +103,7 @@ INSERT INTO location (state, city, town) VALUES
 ('Gujarat', 'Ahmedabad', 'Navrangpura'),
 ('Karnataka', 'Bangalore', 'Indiranagar'),
 ('Telangana', 'Hyderabad', 'Banjara Hills'),
-('Rajasthan', 'Jaipur', 'Malviya Nagar'),
+('Rajasthan', 'Jaipur', 'Sanganer'),
 ('Uttar Pradesh', 'Lucknow', 'Hazratganj'),
 ('West Bengal', 'Kolkata', 'Taratala'),
 ('Uttar Pradesh', 'Ghaziabad', 'Noida'),
@@ -111,7 +111,7 @@ INSERT INTO location (state, city, town) VALUES
 ('Maharashtra', 'Mumbai', 'Andheri'),
 ('Tamil Nadu', 'Chennai', 'T Nagar'),
 ('Karnataka', 'Bengaluru', 'Whitefield'),
-('West Bengal', 'Kolkata', 'Salt Lake'),
+('Uttar Pradesh', 'Lucknow', 'Lolai'),
 ('Rajasthan', 'Jaipur', 'Malviya Nagar'),
 ('Punjab', 'Amritsar', 'Ranjit Avenue'),
 ('Gujarat', 'Ahmedabad', 'Satellite'),
@@ -145,8 +145,8 @@ INSERT INTO customer (customer_id, name, dob, email, mobile_no, location_id, ven
 ('C009', 'Chris Wong', '1987-02-14', 'chris.wong@example.com', '2345678901', 9, 'V009'),
 ('C010', 'Priya Kapoor', '1994-04-05', 'priya.kapoor@example.com', '1234567890', 10, 'V010'),
 ('C011', 'Matt Murdock', '2000-08-29', 'matt.murdock@example.com', '9876543211', 11, 'V001'),
-('C017', 'Foggy', '2005-08-29', 'foggy@example.com', '9876543212', 12, 'V003',
-('c098', 'khjabfk', '2003-08-29', 21, 'as', 'afs', 'af', 'V001'))
+('C017', 'Foggy', '2005-08-29', 'foggy@example.com', '9876543212', 12, 'V003'),
+('c098', 'khjabfk', '2003-08-29', 'as', 'afs', 13, 'V001');
 
 -- Insert sample data for product
 INSERT INTO product (product_id, name, price, vendor_id) VALUES
@@ -161,7 +161,7 @@ INSERT INTO product (product_id, name, price, vendor_id) VALUES
 ('P009', 'Mouse', 1500.00, 'V009'),
 ('P010', 'Monitor', 12000.00, 'V010'),
 ('P022', 'Laptop Pro', 49600.00, 'V001'),
-('P023', 'Tablet Pro', 19500.00, 'V003')
+('P023', 'Tablet Pro', 19500.00, 'V003');
 
 -- Insert sample data for payment
 INSERT INTO payment (payment_id, customer_id, vendor_id, date, amount) VALUES
@@ -176,8 +176,7 @@ INSERT INTO payment (payment_id, customer_id, vendor_id, date, amount) VALUES
 ('P009', 'C009', 'V009', '2025-03-23 15:40:00', 1400.00),
 ('P010', 'C010', 'V010', '2025-03-22 13:25:00', 1300.00),
 ('P022', 'C011', 'V001', '2025-04-20 10:07:05', 49600.00),
-('P023', 'C017', 'V003', '2025-04-20 10:09:31', 19500.00,
-('P045', '2025-04-22', 49000, 'V001'))
+('P023', 'C017', 'V003', '2025-04-20 10:09:31', 19500.00);
 
 -- Insert sample data for due_payment
 INSERT INTO due_payment (due_payment_id, payment_id, due_date, amount) VALUES
@@ -192,8 +191,7 @@ INSERT INTO due_payment (due_payment_id, payment_id, due_date, amount) VALUES
 ('DP009', 'P009', '2025-03-23', 700.00),
 ('DP010', 'P010', '2025-03-22', 900.00),
 ('DP022', 'P022', '2025-04-20', 400.00),
-('DP023', 'P023', '2025-04-20', 500.00,
-('DP045', 'P045', '2025-04-24', 1000))
+('DP023', 'P023', '2025-04-20', 500.00);
 
 -- Insert sample data for purchase
 INSERT INTO purchase (customer_id, product_id, payment_id) VALUES
@@ -209,7 +207,7 @@ INSERT INTO purchase (customer_id, product_id, payment_id) VALUES
 ('C010', 'P010', 'P010'),
 ('C011', 'P022', 'P022'),
 ('C017', 'P023', 'P023'),
-('C017', 'P003', 'P003')
+('C017', 'P003', 'P003');
 
 -- Insert sample data for notifications
 INSERT INTO notifications (notification_id, customer_id, message, due_date) VALUES
@@ -224,4 +222,4 @@ INSERT INTO notifications (notification_id, customer_id, message, due_date) VALU
 ('N009', 'C009', 'Payment of ₹700 is due on 2025-03-23', '2025-03-23'),
 ('N010', 'C010', 'Payment of ₹900 is due on 2025-03-22', '2025-03-22'),
 ('N022', 'C011', 'Payment of ₹400 is due on 2025-04-20', '2025-04-20'),
-('N023', 'C017', 'Payment of ₹500 is due on 2025-04-20', '2025-04-20')
+('N023', 'C017', 'Payment of ₹500 is due on 2025-04-20', '2025-04-20');
