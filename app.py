@@ -26,8 +26,8 @@ mail = Mail(app)
 # ------------------------
 db = mysql.connector.connect(
     host="localhost",
-    user="root",
-    password="Aditya@100105",
+    user="Enter your username",
+    password="Enter your password",
     database="mydb"
 )
 cursor = db.cursor(dictionary=True)
@@ -35,8 +35,8 @@ cursor = db.cursor(dictionary=True)
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
-        user="root",
-        password="Aditya@100105",
+        user="Enter your username",
+        password="Enter your password",
         database="mydb"
     )
 
