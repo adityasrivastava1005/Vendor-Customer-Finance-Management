@@ -13,8 +13,8 @@ def init_database():
         # Connect to MySQL server (without database)
         conn = mysql.connector.connect(
             host="localhost",
-            user="root",
-            password="Aditya@100105"
+            user="Enter your username",
+            password="Enter your password"
         )
         cursor = conn.cursor()
         
