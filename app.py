@@ -6,6 +6,7 @@ from datetime import datetime
 import os
 from flask_mail import Mail, Message
 import uuid
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # Change this to a secure secret key
@@ -142,7 +143,7 @@ def get_customer_payment_info(cursor, customer_id):
     cursor.execute("""
         SELECT p.date, p.amount
         FROM payment p
-        JOIN does d ON p.p_id = d.p_id
+        JOIN does d ON p.payment_id = d.p_id
         WHERE d.customer_id = %s
         ORDER BY p.date DESC
         LIMIT 1
@@ -270,7 +271,7 @@ def update_all_customer_notifications():
         customers = cursor.fetchall()
         
         for customer in customers:
-            check_and_create_notifications(cursor, customer['Customer_id'])
+            check_and_create_notifications(cursor, customer['customer_id'])
         
         db.commit()
         cursor.close()
@@ -288,21 +289,137 @@ def update_all_customer_notifications():
 def index():
     return render_template("login.html")
 
+@app.route('/vendor_register', methods=['GET', 'POST'])
+def vendor_register():
+    if request.method == 'POST':
+        # Get form data
+        vendor_id = request.form['vendor_id']
+        name = request.form['name']
+        email = request.form['email']
+        mobile_no = request.form['mobile_no']
+        state = request.form['state']
+        city = request.form['city']
+        town = request.form['town']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+        
+        # Get product data
+        product_names = request.form.getlist('product_name')
+        product_prices = request.form.getlist('product_price')
+        
+        # Validate passwords match
+        if password != confirm_password:
+            flash('Passwords do not match!', 'error')
+            return render_template('vendor_register.html')
+        
+        # Get database connection
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+        
+        try:
+            # Check if vendor_id already exists
+            cursor.execute("SELECT * FROM vendor WHERE vendor_id = %s", (vendor_id,))
+            if cursor.fetchone():
+                flash('Vendor ID already exists! Please choose a different ID.', 'error')
+                return render_template('vendor_register.html')
+            
+            # Check if email already exists
+            cursor.execute("SELECT * FROM vendor WHERE email = %s", (email,))
+            if cursor.fetchone():
+                flash('Email already registered! Please use a different email.', 'error')
+                return render_template('vendor_register.html')
+            
+            # Get or create location
+            cursor.execute("""
+                SELECT location_id FROM location 
+                WHERE state = %s AND city = %s AND town = %s
+            """, (state, city, town))
+            location = cursor.fetchone()
+            
+            if location:
+                location_id = location['location_id']
+            else:
+                # Insert new location
+                cursor.execute("""
+                    INSERT INTO location (state, city, town)
+                    VALUES (%s, %s, %s)
+                """, (state, city, town))
+                location_id = cursor.lastrowid
+            
+            # Hash the password
+            hashed_password = generate_password_hash(password)
+            
+            # Insert new vendor
+            cursor.execute("""
+                INSERT INTO vendor (vendor_id, name, email, mobile_no, location_id, password)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (vendor_id, name, email, mobile_no, location_id, hashed_password))
+            
+            # Insert products if provided
+            if product_names and product_prices:
+                for index, (product_name, product_price) in enumerate(zip(product_names, product_prices)):
+                    if product_name.strip() and product_price.strip():
+                        try:
+                            product_id = f"P{vendor_id[1:]}_{index+1}"
+                            cursor.execute("""
+                                INSERT INTO product (product_id, name, price, vendor_id)
+                                VALUES (%s, %s, %s, %s)
+                            """, (product_id, product_name, float(product_price), vendor_id))
+                        except:
+                            pass
+            
+            db.commit()
+            flash('Registration successful! You can now login.', 'success')
+            return redirect(url_for('vendor_login'))
+            
+        except mysql.connector.Error as err:
+            db.rollback()
+            flash(f'Registration failed: {str(err)}', 'error')
+            return render_template('vendor_register.html')
+        finally:
+            cursor.close()
+            db.close()
+    
+    return render_template('vendor_register.html')
+
 @app.route('/vendor_login', methods=['GET', 'POST'])
 def vendor_login():
     if request.method == 'POST':
         vendor_id = request.form['vendor_id']
-        name = request.form['name']
+        password = request.form['password']
 
-        cursor.execute("SELECT * FROM vendor WHERE vendor_id = %s AND name = %s", (vendor_id, name))
+        # Get database connection
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+        
+        cursor.execute("SELECT * FROM vendor WHERE vendor_id = %s", (vendor_id,))
         vendor = cursor.fetchone()
+        
+        cursor.close()
+        db.close()
 
         if vendor:
-            session['vendor_id'] = vendor_id
-            session['user_type'] = 'vendor'
-            return redirect(url_for('vendor_dashboard'))
+            # Check if vendor has a password set
+            if vendor['password']:
+                # Verify password with hash
+                if check_password_hash(vendor['password'], password):
+                    session.clear()
+                    session['vendor_id'] = vendor['vendor_id']
+                    session['user_type'] = 'vendor'
+                    return redirect(url_for('vendor_dashboard'))
+                else:
+                    return render_template('vendor_login.html', error="Invalid Vendor ID or Password")
+            else:
+                # Legacy vendor without password - check if password matches name
+                if password == vendor['name']:
+                    session.clear()
+                    session['vendor_id'] = vendor['vendor_id']
+                    session['user_type'] = 'vendor'
+                    return redirect(url_for('vendor_dashboard'))
+                else:
+                    return render_template('vendor_login.html', error="Invalid Vendor ID or Password")
         else:
-            return render_template('vendor_login.html', error="Invalid Vendor ID or Name")
+            return render_template('vendor_login.html', error="Invalid Vendor ID or Password")
 
     return render_template('vendor_login.html')
 
@@ -317,16 +434,26 @@ def vendor_dashboard():
     
     vendor_id = session['vendor_id']
     
-    # Fetch fresh vendor data
-    cursor.execute("SELECT * FROM vendor WHERE vendor_id = %s", (vendor_id,))
+    # Fetch fresh vendor data with location info
+    cursor.execute("""
+        SELECT v.*, l.city, l.state, l.town 
+        FROM vendor v
+        LEFT JOIN location l ON v.location_id = l.location_id
+        WHERE v.vendor_id = %s
+    """, (vendor_id,))
     vendor = cursor.fetchone()
 
     # Fetch fresh products data
     cursor.execute("SELECT * FROM product WHERE vendor_id = %s", (vendor_id,))
     products = cursor.fetchall()
 
-    # Fetch fresh customers data
-    cursor.execute("SELECT * FROM customer WHERE vendor_id = %s", (vendor_id,))
+    # Fetch fresh customers data with location info
+    cursor.execute("""
+        SELECT c.*, l.city, l.state, l.town 
+        FROM customer c
+        LEFT JOIN location l ON c.location_id = l.location_id
+        WHERE c.vendor_id = %s
+    """, (vendor_id,))
     customers = cursor.fetchall()
 
     customer_products = {}
@@ -335,13 +462,13 @@ def vendor_dashboard():
 
     # Fetch fresh customer products, due amounts, and payment dates
     for customer in customers:
-        cid = customer['Customer_id']
+        cid = customer['customer_id']
 
         cursor.execute("""
             SELECT p.name, p.price
-            FROM buy
-            JOIN product p ON buy.product_id = p.product_id
-            WHERE buy.customer_id = %s
+            FROM purchase
+            JOIN product p ON purchase.product_id = p.product_id
+            WHERE purchase.customer_id = %s
         """, (cid,))
         items = cursor.fetchall()
         customer_products[cid] = items
@@ -349,7 +476,7 @@ def vendor_dashboard():
         cursor.execute("""
             SELECT SUM(d.amount) as total_due
             FROM does
-            JOIN due_payment d ON does.p_id = d.p_id
+            JOIN due_payment d ON does.p_id = d.payment_id
             WHERE does.customer_id = %s
         """, (cid,))
         due = cursor.fetchone()
@@ -377,16 +504,26 @@ def vendor_home(vendor_id):
     db = get_db_connection()
     cursor = db.cursor(dictionary=True)
     
-    # Fetch vendor details
-    cursor.execute("SELECT * FROM vendor WHERE vendor_id = %s", (vendor_id,))
+    # Fetch vendor details with location info
+    cursor.execute("""
+        SELECT v.*, l.city, l.state, l.town 
+        FROM vendor v
+        LEFT JOIN location l ON v.location_id = l.location_id
+        WHERE v.vendor_id = %s
+    """, (vendor_id,))
     vendor = cursor.fetchone()
     
     # Fetch products sold by the vendor
     cursor.execute("SELECT * FROM product WHERE vendor_id = %s", (vendor_id,))
     products = cursor.fetchall()
     
-    # Fetch customers linked to the vendor
-    cursor.execute("SELECT * FROM customer WHERE Vendor_id = %s", (vendor_id,))
+    # Fetch customers linked to the vendor with location info
+    cursor.execute("""
+        SELECT c.*, l.city, l.state, l.town 
+        FROM customer c
+        LEFT JOIN location l ON c.location_id = l.location_id
+        WHERE c.vendor_id = %s
+    """, (vendor_id,))
     customers = cursor.fetchall()
     
     # Fetch customer products and due amounts
@@ -395,12 +532,12 @@ def vendor_home(vendor_id):
     payment_dates = {}
     
     for customer in customers:
-        customer_id = customer['Customer_id']
+        customer_id = customer['customer_id']
         
         # Get products purchased by this customer
         cursor.execute("""
             SELECT p.* FROM product p
-            JOIN buy b ON p.product_id = b.product_id
+            JOIN purchase b ON p.product_id = b.product_id
             WHERE b.customer_id = %s
         """, (customer_id,))
         customer_products[customer_id] = cursor.fetchall()
@@ -409,7 +546,7 @@ def vendor_home(vendor_id):
         cursor.execute("""
             SELECT SUM(dp.amount) as total_due
             FROM does d
-            JOIN due_payment dp ON d.p_id = dp.p_id
+            JOIN due_payment dp ON d.p_id = dp.payment_id
             WHERE d.customer_id = %s
         """, (customer_id,))
         due_result = cursor.fetchone()
@@ -417,11 +554,11 @@ def vendor_home(vendor_id):
         
         # Get payment date for this customer
         cursor.execute("""
-            SELECT dp.date
+            SELECT dp.due_date AS date
             FROM does d
-            JOIN due_payment dp ON d.p_id = dp.p_id
+            JOIN due_payment dp ON d.p_id = dp.payment_id
             WHERE d.customer_id = %s
-            ORDER BY dp.date DESC
+            ORDER BY dp.due_date DESC
             LIMIT 1
         """, (customer_id,))
         date_result = cursor.fetchone()
@@ -449,7 +586,7 @@ def customer_login():
         cursor = db.cursor(dictionary=True)
         
         # Check if customer exists
-        cursor.execute("SELECT * FROM customer WHERE Customer_id = %s", (customer_id,))
+        cursor.execute("SELECT * FROM customer WHERE customer_id = %s", (customer_id,))
         customer = cursor.fetchone()
         
         # Close the connection
@@ -476,8 +613,13 @@ def customer_dashboard():
     
     customer_id = session['customer_id']
     
-    # First check if customer still exists
-    cursor.execute("SELECT * FROM customer WHERE Customer_id = %s", (customer_id,))
+    # First check if customer still exists with location info
+    cursor.execute("""
+        SELECT c.*, l.city, l.state, l.town 
+        FROM customer c
+        LEFT JOIN location l ON c.location_id = l.location_id
+        WHERE c.customer_id = %s
+    """, (customer_id,))
     customer = cursor.fetchone()
     
     if not customer:
@@ -499,17 +641,17 @@ def customer_dashboard():
     # Fetch fresh purchases data
     cursor.execute("""
         SELECT p.name, p.price
-        FROM buy
-        JOIN product p ON buy.product_id = p.product_id
-        WHERE buy.customer_id = %s
+        FROM purchase
+        JOIN product p ON purchase.product_id = p.product_id
+        WHERE purchase.customer_id = %s
     """, (customer_id,))
     purchases = cursor.fetchall()
 
     # Fetch fresh due payment data
     cursor.execute("""
-        SELECT SUM(d.amount) AS total_due, MAX(d.date) AS max_due_date
+        SELECT SUM(d.amount) AS total_due, MAX(d.due_date) AS max_due_date
         FROM does
-        JOIN due_payment d ON does.p_id = d.p_id
+        JOIN due_payment d ON does.p_id = d.payment_id
         WHERE does.customer_id = %s
     """, (customer_id,))
     due_data = cursor.fetchone()
@@ -518,7 +660,7 @@ def customer_dashboard():
     cursor.execute("""
         SELECT MAX(p.date) AS purchase_date
         FROM does
-        JOIN payment p ON does.p_id = p.p_id
+        JOIN payment p ON does.p_id = p.payment_id
         WHERE does.customer_id = %s
     """, (customer_id,))
     purchase_data = cursor.fetchone()
@@ -561,41 +703,41 @@ def add_customer(vendor_id):
             db = get_db_connection()
             cursor = db.cursor(dictionary=True)
             
-            # Insert customer data
-            customer_data = (
-                request.form['Customer_id'],
-                request.form['Name'],
-                request.form['DOB'],
-                request.form['Age'],
-                request.form['City'],
-                request.form['Town'],
-                request.form['State'],
-                vendor_id
-            )
+            customer_id = request.form['Customer_id']
+            name = request.form['Name']
+            dob = request.form['DOB']
+            city = request.form['City']
+            town = request.form['Town']
+            state = request.form['State']
+            
+            # Get or create location
             cursor.execute("""
-                INSERT INTO customer (Customer_id, Name, DOB, Age, City, Town, State, Vendor_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, customer_data)
-
-            # Log the customer addition
-            log_entity_change(
-                "ADDED",
-                "Customer",
-                customer_data[0],
-                f"Name: {customer_data[1]}, Location: {customer_data[4]}, {customer_data[5]}, {customer_data[6]}"
-            )
-
-            # Update SQL file for customer
-            customer_sql = f"('{customer_data[0]}', '{customer_data[1]}', '{customer_data[2]}', {customer_data[3]}, '{customer_data[4]}', '{customer_data[5]}', '{customer_data[6]}', '{customer_data[7]}')"
-            update_sql_file('add', 'customer', customer_sql)
+                SELECT location_id FROM location 
+                WHERE state = %s AND city = %s AND town = %s
+            """, (state, city, town))
+            location = cursor.fetchone()
+            
+            if location:
+                location_id = location['location_id']
+            else:
+                # Insert new location
+                cursor.execute("""
+                    INSERT INTO location (state, city, town)
+                    VALUES (%s, %s, %s)
+                """, (state, city, town))
+                location_id = cursor.lastrowid
+            
+            # Insert customer data
+            cursor.execute("""
+                INSERT INTO customer (customer_id, name, dob, location_id, vendor_id)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (customer_id, name, dob, location_id, vendor_id))
 
             # Generate a unique payment ID
-            cursor.execute("SELECT MAX(p_id) AS last_p_id FROM payment")
-            last_p_id = cursor.fetchone()['last_p_id']
-            if last_p_id:
-                new_payment_id = f"P{int(last_p_id[1:]) + 1:03d}"
-            else:
-                new_payment_id = "P001"
+            cursor.execute("SELECT MAX(CAST(SUBSTRING(payment_id, 2) AS UNSIGNED)) AS last_id FROM payment WHERE payment_id LIKE 'P%'")
+            result = cursor.fetchone()
+            last_id = result['last_id'] if result['last_id'] else 0
+            new_payment_id = f"P{last_id + 1:03d}"
 
             # Insert payment data
             paid_amount = request.form['AmountPaid']
@@ -603,25 +745,18 @@ def add_customer(vendor_id):
             purchase_date = request.form['PurchaseDate']
             
             cursor.execute("""
-                INSERT INTO payment (p_id, date, amount, vendor_id)
-                VALUES (%s, %s, %s, %s)
-            """, (new_payment_id, purchase_date, paid_amount, vendor_id))
-
-            # Update SQL file for payment
-            payment_sql = f"('{new_payment_id}', '{purchase_date}', {paid_amount}, '{vendor_id}')"
-            update_sql_file('add', 'payment', payment_sql)
+                INSERT INTO payment (payment_id, customer_id, vendor_id, date, amount)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (new_payment_id, customer_id, vendor_id, purchase_date, paid_amount))
 
             # Only insert due payment if there is a due amount
-            if due_amount and int(due_amount) > 0:
+            if due_amount and float(due_amount) > 0:
                 due_date = request.form['DueDate']
+                due_payment_id = f"DP{last_id + 1:03d}"
                 cursor.execute("""
-                    INSERT INTO due_payment (dueP_id, p_id, date, amount)
+                    INSERT INTO due_payment (due_payment_id, payment_id, due_date, amount)
                     VALUES (%s, %s, %s, %s)
-                """, (f'DP{new_payment_id[1:]}', new_payment_id, due_date, due_amount))
-
-                # Update SQL file for due payment
-                due_payment_sql = f"('DP{new_payment_id[1:]}', '{new_payment_id}', '{due_date}', {due_amount})"
-                update_sql_file('add', 'due_payment', due_payment_sql)
+                """, (due_payment_id, new_payment_id, due_date, due_amount))
 
                 # Create notification for the due payment
                 notification_id = str(uuid.uuid4())
@@ -629,42 +764,21 @@ def add_customer(vendor_id):
                 cursor.execute("""
                     INSERT INTO notifications (notification_id, customer_id, message, due_date)
                     VALUES (%s, %s, %s, %s)
-                """, (notification_id, customer_data[0], message, due_date))
+                """, (notification_id, customer_id, message, due_date))
 
-                # Send email notification if email is provided
-                if 'Email' in request.form and request.form['Email']:
-                    try:
-                        send_payment_reminder_email(
-                            request.form['Email'],
-                            request.form['Name'],
-                            datetime.strptime(due_date, '%Y-%m-%d').date(),
-                            float(due_amount)
-                        )
-                    except Exception as e:
-                        print(f"Error sending email notification: {str(e)}")
-
-            # Link customer and payment
-            customer_id = request.form['Customer_id']
+            # Link customer and payment (does table)
             cursor.execute("""
                 INSERT INTO does (customer_id, p_id)
                 VALUES (%s, %s)
             """, (customer_id, new_payment_id))
 
-            # Update SQL file for does
-            does_sql = f"('{customer_id}', '{new_payment_id}')"
-            update_sql_file('add', 'does', does_sql)
-
             # Insert purchased products
             selected_products = request.form.getlist('products')
             for product_id in selected_products:
                 cursor.execute("""
-                    INSERT INTO buy (customer_id, product_id)
-                    VALUES (%s, %s)
-                """, (customer_id, product_id))
-
-                # Update SQL file for buy
-                buy_sql = f"('{customer_id}', '{product_id}')"
-                update_sql_file('add', 'buy', buy_sql)
+                    INSERT INTO purchase (customer_id, product_id, payment_id)
+                    VALUES (%s, %s, %s)
+                """, (customer_id, product_id, new_payment_id))
 
             # Commit changes
             db.commit()
@@ -675,11 +789,6 @@ def add_customer(vendor_id):
             
             # Clear any cached data
             session.pop('_flashes', None)
-            
-            # If the added customer is currently logged in, update their session
-            if session.get('customer_id') == customer_id:
-                session['customer_id'] = customer_id
-                session['user_type'] = 'customer'
             
             # Stay on the current page
             return redirect(request.referrer or url_for('vendor_dashboard'))
@@ -704,48 +813,53 @@ def delete_customer(vendor_id, customer_id):
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)
         
-        # Delete notifications related to the customer
+        # Temporarily disable foreign key checks
+        cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
+        
+        # Get payment IDs for this customer
+        cursor.execute("SELECT p_id FROM does WHERE customer_id = %s", (customer_id,))
+        payment_ids = [row['p_id'] for row in cursor.fetchall()]
+        
+        # Delete notifications
         cursor.execute("DELETE FROM notifications WHERE customer_id = %s", (customer_id,))
         
-        # Get customer data before deletion for SQL file update
-        cursor.execute("SELECT * FROM customer WHERE Customer_id = %s", (customer_id,))
-        customer = cursor.fetchone()
-        if customer:
-            customer_sql = f"('{customer['Customer_id']}', '{customer['Name']}', '{customer['DOB']}', {customer['Age']}, '{customer['City']}', '{customer['Town']}', '{customer['State']}', '{customer['Vendor_id']}')"
-            update_sql_file('delete', 'customer', customer_sql)
-
-        # Get payment data before deletion
-        cursor.execute("SELECT p_id FROM does WHERE customer_id = %s", (customer_id,))
-        payments = cursor.fetchall()
-        for payment in payments:
-            cursor.execute("SELECT * FROM payment WHERE p_id = %s", (payment['p_id'],))
-            payment_data = cursor.fetchone()
-            if payment_data:
-                payment_sql = f"('{payment_data['p_id']}', '{payment_data['date']}', {payment_data['amount']}, '{payment_data['vendor_id']}')"
-                update_sql_file('delete', 'payment', payment_sql)
-
-            cursor.execute("SELECT * FROM due_payment WHERE p_id = %s", (payment['p_id'],))
-            due_payment_data = cursor.fetchone()
-            if due_payment_data:
-                due_payment_sql = f"('{due_payment_data['dueP_id']}', '{due_payment_data['p_id']}', '{due_payment_data['date']}', {due_payment_data['amount']})"
-                update_sql_file('delete', 'due_payment', due_payment_sql)
-
-            does_sql = f"('{customer_id}', '{payment['p_id']}')"
-            update_sql_file('delete', 'does', does_sql)
-
-        # Get buy data before deletion
-        cursor.execute("SELECT * FROM buy WHERE customer_id = %s", (customer_id,))
-        buys = cursor.fetchall()
-        for buy in buys:
-            buy_sql = f"('{buy['customer_id']}', '{buy['product_id']}')"
-            update_sql_file('delete', 'buy', buy_sql)
-
-        # Delete from database in the correct order (respecting foreign key constraints)
-        # First delete from child tables
+        # Delete from does (customer-payment junction)
         cursor.execute("DELETE FROM does WHERE customer_id = %s", (customer_id,))
-        cursor.execute("DELETE FROM buy WHERE customer_id = %s", (customer_id,))
-        # Then delete from parent table
-        cursor.execute("DELETE FROM customer WHERE Customer_id = %s", (customer_id,))
+        
+        # Delete from purchase
+        cursor.execute("DELETE FROM purchase WHERE customer_id = %s", (customer_id,))
+        
+        # Delete from due_payment for this customer's payments
+        if payment_ids:
+            format_strings = ','.join(['%s'] * len(payment_ids))
+            cursor.execute(f"DELETE FROM due_payment WHERE payment_id IN ({format_strings})", tuple(payment_ids))
+        
+        # Delete payments for this customer
+        if payment_ids:
+            format_strings = ','.join(['%s'] * len(payment_ids))
+            cursor.execute(f"DELETE FROM payment WHERE payment_id IN ({format_strings})", tuple(payment_ids))
+        
+        # Get customer's location_id before deletion
+        cursor.execute("SELECT location_id FROM customer WHERE customer_id = %s", (customer_id,))
+        customer_row = cursor.fetchone()
+        customer_location_id = customer_row['location_id'] if customer_row else None
+
+        # Delete the customer
+        cursor.execute("DELETE FROM customer WHERE customer_id = %s", (customer_id,))
+
+        # Delete location if it's not used by any other vendor or customer
+        if customer_location_id:
+            cursor.execute("SELECT COUNT(*) as count FROM vendor WHERE location_id = %s", (customer_location_id,))
+            vendor_count = cursor.fetchone()['count']
+
+            cursor.execute("SELECT COUNT(*) as count FROM customer WHERE location_id = %s", (customer_location_id,))
+            customer_count = cursor.fetchone()['count']
+
+            if vendor_count == 0 and customer_count == 0:
+                cursor.execute("DELETE FROM location WHERE location_id = %s", (customer_location_id,))
+        
+        # Re-enable foreign key checks
+        cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
         
         # Commit the transaction
         db.commit()
@@ -754,7 +868,7 @@ def delete_customer(vendor_id, customer_id):
         cursor.close()
         db.close()
         
-        # If the deleted customer is currently logged in, just clear their session
+        # If the deleted customer is currently logged in, clear their session
         if session.get('customer_id') == customer_id:
             session.clear()
         
@@ -763,9 +877,15 @@ def delete_customer(vendor_id, customer_id):
         
     except Exception as e:
         print(f"Error deleting customer: {str(e)}")
+        import traceback
+        traceback.print_exc()
         # Rollback the transaction in case of error
         if 'db' in locals():
-            db.rollback()
+            try:
+                cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+                db.rollback()
+            except:
+                pass
             db.close()
         # Return error response
         return str(e), 500
@@ -800,6 +920,173 @@ def update_notifications():
     else:
         flash('Error updating notifications', 'error')
     return redirect(url_for('index'))
+
+# ------------------------
+# Delete Vendor Route
+# ------------------------
+@app.route('/delete_vendor/<vendor_id>', methods=['POST'])
+def delete_vendor(vendor_id):
+    db = None
+    cursor = None
+    try:
+        # Security check: only allow vendor to delete their own account
+        session_vendor_id = session.get('vendor_id')
+        if not session_vendor_id or session_vendor_id.lower() != vendor_id.lower():
+            return '', 403
+        
+        vendor_id_db = session_vendor_id
+        
+        # Get database connection
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+        
+        print(f"Attempting to delete vendor: {vendor_id}")
+        
+        # Temporarily disable foreign key checks for cascading deletes
+        cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
+        print("Foreign key checks disabled")
+        
+        # Fetch all related IDs first (to avoid MySQL subquery issues)
+        cursor.execute("SELECT customer_id FROM customer WHERE vendor_id = %s", (vendor_id_db,))
+        customer_ids = [row['customer_id'] for row in cursor.fetchall()]
+        print(f"Found {len(customer_ids)} customers: {customer_ids}")
+        
+        cursor.execute("SELECT product_id FROM product WHERE vendor_id = %s", (vendor_id_db,))
+        product_ids = [row['product_id'] for row in cursor.fetchall()]
+        print(f"Found {len(product_ids)} products: {product_ids}")
+        
+        cursor.execute("SELECT payment_id FROM payment WHERE vendor_id = %s", (vendor_id_db,))
+        payment_ids = [row['payment_id'] for row in cursor.fetchall()]
+        print(f"Found {len(payment_ids)} payments: {payment_ids}")
+        
+        # Get vendor's location_id before deletion
+        cursor.execute("SELECT location_id FROM vendor WHERE vendor_id = %s", (vendor_id_db,))
+        vendor_row = cursor.fetchone()
+        vendor_location_id = vendor_row['location_id'] if vendor_row else None
+        print(f"Vendor location_id: {vendor_location_id}")
+
+        # Get customer location_ids before deletion
+        cursor.execute("""
+            SELECT DISTINCT location_id
+            FROM customer
+            WHERE vendor_id = %s AND location_id IS NOT NULL
+        """, (vendor_id_db,))
+        customer_location_ids = [row['location_id'] for row in cursor.fetchall()]
+        print(f"Customer location_ids: {customer_location_ids}")
+        
+        # Delete notifications
+        if customer_ids:
+            placeholders = ','.join(['%s'] * len(customer_ids))
+            cursor.execute(f"DELETE FROM notifications WHERE customer_id IN ({placeholders})", tuple(customer_ids))
+            print(f"Deleted {cursor.rowcount} notifications")
+        
+        # Delete does
+        if customer_ids:
+            placeholders = ','.join(['%s'] * len(customer_ids))
+            cursor.execute(f"DELETE FROM does WHERE customer_id IN ({placeholders})", tuple(customer_ids))
+            print(f"Deleted {cursor.rowcount} does records")
+        
+        # Delete ALL purchase records
+        all_ids = []
+        queries = []
+        if customer_ids:
+            all_ids.extend(customer_ids)
+            queries.append(f"customer_id IN ({','.join(['%s'] * len(customer_ids))})")
+        if product_ids:
+            all_ids.extend(product_ids)
+            queries.append(f"product_id IN ({','.join(['%s'] * len(product_ids))})")
+        if payment_ids:
+            all_ids.extend(payment_ids)
+            queries.append(f"payment_id IN ({','.join(['%s'] * len(payment_ids))})")
+        
+        if queries:
+            delete_query = f"DELETE FROM purchase WHERE {' OR '.join(queries)}"
+            cursor.execute(delete_query, tuple(all_ids))
+            print(f"Deleted {cursor.rowcount} purchase records")
+        
+        # Delete due_payment
+        if payment_ids:
+            placeholders = ','.join(['%s'] * len(payment_ids))
+            cursor.execute(f"DELETE FROM due_payment WHERE payment_id IN ({placeholders})", tuple(payment_ids))
+            print(f"Deleted {cursor.rowcount} due_payment records")
+        
+        # Delete payments
+        cursor.execute("DELETE FROM payment WHERE vendor_id = %s", (vendor_id_db,))
+        print(f"Deleted {cursor.rowcount} payments")
+        
+        # Delete products
+        cursor.execute("DELETE FROM product WHERE vendor_id = %s", (vendor_id_db,))
+        print(f"Deleted {cursor.rowcount} products")
+        
+        # Delete customers
+        cursor.execute("DELETE FROM customer WHERE vendor_id = %s", (vendor_id_db,))
+        print(f"Deleted {cursor.rowcount} customers")
+        
+        # Delete the vendor
+        cursor.execute("DELETE FROM vendor WHERE vendor_id = %s", (vendor_id_db,))
+        print(f"Deleted {cursor.rowcount} vendor")
+        
+        # Delete vendor location if it's not being used by any other vendor or customer
+        if vendor_location_id:
+            cursor.execute("SELECT COUNT(*) as count FROM vendor WHERE location_id = %s", (vendor_location_id,))
+            vendor_count = cursor.fetchone()['count']
+            
+            cursor.execute("SELECT COUNT(*) as count FROM customer WHERE location_id = %s", (vendor_location_id,))
+            customer_count = cursor.fetchone()['count']
+            
+            if vendor_count == 0 and customer_count == 0:
+                cursor.execute("DELETE FROM location WHERE location_id = %s", (vendor_location_id,))
+                print(f"Deleted location {vendor_location_id}")
+            else:
+                print(f"Location {vendor_location_id} still in use by {vendor_count} vendors and {customer_count} customers")
+
+        # Delete customer locations if they're not used by any other vendor or customer
+        for location_id in customer_location_ids:
+            if vendor_location_id and location_id == vendor_location_id:
+                continue
+            cursor.execute("SELECT COUNT(*) as count FROM vendor WHERE location_id = %s", (location_id,))
+            vendor_count = cursor.fetchone()['count']
+
+            cursor.execute("SELECT COUNT(*) as count FROM customer WHERE location_id = %s", (location_id,))
+            customer_count = cursor.fetchone()['count']
+
+            if vendor_count == 0 and customer_count == 0:
+                cursor.execute("DELETE FROM location WHERE location_id = %s", (location_id,))
+                print(f"Deleted customer location {location_id}")
+        
+        # Re-enable foreign key checks
+        cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+        print("Foreign key checks re-enabled")
+        
+        # Commit the transaction
+        db.commit()
+        print("Transaction committed")
+        
+        # Close the connection
+        cursor.close()
+        db.close()
+        
+        # Clear the session since the vendor account is deleted
+        session.clear()
+        
+        print(f"Successfully deleted vendor {vendor_id}")
+        # Return success status code
+        return '', 204
+        
+    except Exception as e:
+        print(f"Error deleting vendor: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        # Rollback the transaction in case of error
+        if db is not None:
+            try:
+                if cursor is not None:
+                    cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+                db.rollback()
+                db.close()
+            except Exception as rollback_error:
+                print(f"Error during rollback: {rollback_error}")
+        return '', 500
 
 # ------------------------
 # Run Flask App

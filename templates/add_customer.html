@@ -32,6 +32,36 @@
                 document.getElementById('dueDateLabel').style.color = '';
             }
         }
+
+        function updateAmountDue() {
+            const paidInput = document.getElementById('AmountPaid');
+            const dueInput = document.getElementById('AmountDue');
+            const productCheckboxes = document.querySelectorAll('input[name="products"]');
+
+            let total = 0;
+            productCheckboxes.forEach((checkbox) => {
+                if (checkbox.checked) {
+                    const price = parseFloat(checkbox.dataset.price || '0');
+                    total += isNaN(price) ? 0 : price;
+                }
+            });
+
+            const paid = parseFloat(paidInput.value || '0');
+            const due = Math.max(0, total - (isNaN(paid) ? 0 : paid));
+            dueInput.value = due.toFixed(2).replace(/\.00$/, '');
+            toggleDueDate();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const productCheckboxes = document.querySelectorAll('input[name="products"]');
+            productCheckboxes.forEach((checkbox) => {
+                checkbox.addEventListener('change', updateAmountDue);
+            });
+
+            const paidInput = document.getElementById('AmountPaid');
+            paidInput.addEventListener('input', updateAmountDue);
+            updateAmountDue();
+        });
     </script>
 </head>
 <body>
@@ -52,7 +82,7 @@
             <div class="product-selection">
                 {% for product in products %}
                 <div class="product-item">
-                    <input type="checkbox" name="products" value="{{ product.product_id }}" id="product_{{ product.product_id }}">
+                    <input type="checkbox" name="products" value="{{ product.product_id }}" id="product_{{ product.product_id }}" data-price="{{ product.price }}">
                     <label for="product_{{ product.product_id }}">{{ product.name }} - ₹{{ product.price }}</label>
                 </div>
                 {% endfor %}
@@ -60,8 +90,8 @@
             
             <!-- Payment Info -->
             <h3>Payment Information</h3>
-            <input type="number" name="AmountPaid" placeholder="Amount Paid (₹)" required>
-            <input type="number" name="AmountDue" id="AmountDue" placeholder="Amount Due (₹)" required onchange="toggleDueDate()">
+            <input type="number" name="AmountPaid" id="AmountPaid" placeholder="Amount Paid (₹)" required>
+            <input type="number" name="AmountDue" id="AmountDue" placeholder="Amount Due (₹)" readonly required>
             
             <!-- Dates -->
             <h3>Important Dates</h3>

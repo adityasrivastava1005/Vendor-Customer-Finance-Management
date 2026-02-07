@@ -75,11 +75,21 @@ CREATE TABLE purchase (
     purchase_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id VARCHAR(50) NOT NULL,
     product_id VARCHAR(50) NOT NULL,
-    payment_id VARCHAR(50) NOT NULL,
+    payment_id VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES customer(customer_id),
     FOREIGN KEY (product_id) REFERENCES product(product_id),
     FOREIGN KEY (payment_id) REFERENCES payment(payment_id)
+);
+
+-- DOES Table (Junction table linking customers to payments)
+CREATE TABLE does (
+    does_id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id VARCHAR(50) NOT NULL,
+    p_id VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customer(customer_id),
+    FOREIGN KEY (p_id) REFERENCES payment(payment_id)
 );
 
 -- NOTIFICATIONS Table (Normalized)
@@ -146,7 +156,7 @@ INSERT INTO customer (customer_id, name, dob, email, mobile_no, location_id, ven
 ('C010', 'Priya Kapoor', '1994-04-05', 'priya.kapoor@example.com', '1234567890', 10, 'V010'),
 ('C011', 'Matt Murdock', '2000-08-29', 'matt.murdock@example.com', '9876543211', 11, 'V001'),
 ('C017', 'Foggy', '2005-08-29', 'foggy@example.com', '9876543212', 12, 'V003'),
-('c098', 'khjabfk', '2003-08-29', 'as', 'afs', 13, 'V001');
+('c098', 'khjabfk', '2003-08-29', 'as', 'afs', 13, 'V001')
 
 -- Insert sample data for product
 INSERT INTO product (product_id, name, price, vendor_id) VALUES
@@ -161,7 +171,7 @@ INSERT INTO product (product_id, name, price, vendor_id) VALUES
 ('P009', 'Mouse', 1500.00, 'V009'),
 ('P010', 'Monitor', 12000.00, 'V010'),
 ('P022', 'Laptop Pro', 49600.00, 'V001'),
-('P023', 'Tablet Pro', 19500.00, 'V003');
+('P023', 'Tablet Pro', 19500.00, 'V003')
 
 -- Insert sample data for payment
 INSERT INTO payment (payment_id, customer_id, vendor_id, date, amount) VALUES
@@ -176,7 +186,7 @@ INSERT INTO payment (payment_id, customer_id, vendor_id, date, amount) VALUES
 ('P009', 'C009', 'V009', '2025-03-23 15:40:00', 1400.00),
 ('P010', 'C010', 'V010', '2025-03-22 13:25:00', 1300.00),
 ('P022', 'C011', 'V001', '2025-04-20 10:07:05', 49600.00),
-('P023', 'C017', 'V003', '2025-04-20 10:09:31', 19500.00);
+('P023', 'C017', 'V003', '2025-04-20 10:09:31', 19500.00)
 
 -- Insert sample data for due_payment
 INSERT INTO due_payment (due_payment_id, payment_id, due_date, amount) VALUES
@@ -191,7 +201,7 @@ INSERT INTO due_payment (due_payment_id, payment_id, due_date, amount) VALUES
 ('DP009', 'P009', '2025-03-23', 700.00),
 ('DP010', 'P010', '2025-03-22', 900.00),
 ('DP022', 'P022', '2025-04-20', 400.00),
-('DP023', 'P023', '2025-04-20', 500.00);
+('DP023', 'P023', '2025-04-20', 500.00)
 
 -- Insert sample data for purchase
 INSERT INTO purchase (customer_id, product_id, payment_id) VALUES
@@ -207,7 +217,22 @@ INSERT INTO purchase (customer_id, product_id, payment_id) VALUES
 ('C010', 'P010', 'P010'),
 ('C011', 'P022', 'P022'),
 ('C017', 'P023', 'P023'),
-('C017', 'P003', 'P003');
+('C017', 'P003', 'P003')
+
+-- Insert sample data for does
+INSERT INTO does (customer_id, p_id) VALUES
+('C001', 'P001'),
+('C002', 'P002'),
+('C003', 'P003'),
+('C004', 'P004'),
+('C005', 'P005'),
+('C006', 'P006'),
+('C007', 'P007'),
+('C008', 'P008'),
+('C009', 'P009'),
+('C010', 'P010'),
+('C011', 'P022'),
+('C017', 'P023');
 
 -- Insert sample data for notifications
 INSERT INTO notifications (notification_id, customer_id, message, due_date) VALUES

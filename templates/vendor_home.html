@@ -40,6 +40,40 @@
                 });
             }
         }
+
+        // Function to handle delete vendor form submission
+        function handleDeleteVendor(event, vendorName, vendorId) {
+            event.preventDefault();
+            
+            const message = 'WARNING: This will permanently delete your vendor account and all associated data (customers, products, payments). Click OK to confirm deletion of ' + vendorName + ' (' + vendorId + ').';
+            
+            if (confirm(message)) {
+                const form = event.target;
+                
+                // Submit the form using fetch API
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams(new FormData(form))
+                })
+                .then(response => {
+                    if (response.status === 204) {
+                        // Success - redirect to login page
+                        alert('Vendor account has been deleted successfully. Redirecting to login...');
+                        window.location.href = "{{ url_for('index') }}";
+                    } else {
+                        // Error handling
+                        alert('Error deleting vendor account. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting vendor account. Please try again.');
+                });
+            }
+        }
     </script>
 </head>
 <body>
@@ -61,6 +95,9 @@
                 </div>
                 <div class="vendor-actions">
                     <a href="{{ url_for('add_customer', vendor_id=vendor.vendor_id) }}" class="add-customer-btn">➕ Add New Customer</a>
+                    <form action="{{ url_for('delete_vendor', vendor_id=vendor.vendor_id) }}" method="post" onsubmit="handleDeleteVendor(event, '{{ vendor.name }}', '{{ vendor.vendor_id }}'); return false;" style="display: inline;">
+                        <button type="submit" class="delete-btn">🗑️ Delete Account</button>
+                    </form>
                 </div>
             </div>
 
@@ -86,29 +123,29 @@
                     {% for c in customers %}
                         <div class="customer-card">
                             <div class="customer-details">
-                                <div class="customer-name">{{ c.Name }} <span class="customer-id">(ID: {{ c.Customer_id }})</span></div>
-                                <div class="customer-contact">📍 {{ c.City }}, {{ c.State }}</div>
+                                <div class="customer-name">{{ c.name }} <span class="customer-id">(ID: {{ c.customer_id }})</span></div>
+                                <div class="customer-contact">📍 {{ c.city }}, {{ c.state }}</div>
                                 
-                                {% if customer_products[c.Customer_id] %}
+                                {% if customer_products[c.customer_id] %}
                                     <div class="customer-purchases">
                                         <strong>Purchased Products:</strong>
                                         <ul>
-                                            {% for item in customer_products[c.Customer_id] %}
+                                            {% for item in customer_products[c.customer_id] %}
                                                 <li>{{ item.name }} - ₹{{ item.price }}</li>
                                             {% endfor %}
                                         </ul>
                                         
-                                        {% if payment_dates[c.Customer_id] %}
-                                            <p><strong>Date of Purchase:</strong> {{ payment_dates[c.Customer_id].strftime('%Y-%m-%d') }}</p>
+                                        {% if payment_dates[c.customer_id] %}
+                                            <p><strong>Date of Purchase:</strong> {{ payment_dates[c.customer_id].strftime('%Y-%m-%d') }}</p>
                                         {% endif %}
                                     </div>
                                 {% endif %}
 
-                                {% if due_amounts[c.Customer_id] > 0 %}
+                                {% if due_amounts[c.customer_id] > 0 %}
                                     <div class="customer-due">
-                                        <strong>Due Payment:</strong> ₹{{ due_amounts[c.Customer_id] }}
-                                        {% if payment_dates[c.Customer_id] %}
-                                            <br><strong>Due Date:</strong> {{ payment_dates[c.Customer_id].strftime('%Y-%m-%d') }}
+                                        <strong>Due Payment:</strong> ₹{{ due_amounts[c.customer_id] }}
+                                        {% if payment_dates[c.customer_id] %}
+                                            <br><strong>Due Date:</strong> {{ payment_dates[c.customer_id].strftime('%Y-%m-%d') }}
                                         {% endif %}
                                     </div>
                                 {% else %}
@@ -118,7 +155,7 @@
                                 {% endif %}
                             </div>
                             <div class="customer-actions">
-                                <form action="{{ url_for('delete_customer', vendor_id=vendor.vendor_id, customer_id=c.Customer_id) }}" method="post" onsubmit="handleDeleteCustomer(event, '{{ c.Name }}', '{{ c.Customer_id }}'); return false;">
+                                <form action="{{ url_for('delete_customer', vendor_id=vendor.vendor_id, customer_id=c.customer_id) }}" method="post" onsubmit="handleDeleteCustomer(event, '{{ c.name }}', '{{ c.customer_id }}'); return false;">
                                     <button type="submit" class="delete-btn">🗑️ Delete Customer</button>
                                 </form>
                             </div>
